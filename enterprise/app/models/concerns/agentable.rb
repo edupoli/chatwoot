@@ -3,18 +3,20 @@ module Concerns::Agentable
 
   DEFAULT_TEMPERATURE = 0.5
 
-  def agent
+  def agent(inbox: nil)
+    message_length_limit = Captain::MessageLengthLimit.for(inbox)
+
     Agents::Agent.new(
       name: agent_name,
-      instructions: ->(context) { agent_instructions(context) },
+      instructions: ->(context) { agent_instructions(context, message_length_limit: message_length_limit) },
       tools: agent_tools,
       model: agent_model,
       temperature: temperature.presence&.to_f || DEFAULT_TEMPERATURE,
-      response_schema: agent_response_schema
+      response_schema: agent_response_schema(message_length_limit)
     )
   end
 
-  def agent_instructions(context = nil)
+  def agent_instructions(context = nil, message_length_limit: nil)
     enhanced_context = prompt_context
 
     if context
@@ -24,7 +26,8 @@ module Concerns::Agentable
         current_time: format_current_time(state[:timezone]),
         conversation: state[:conversation] || {},
         contact: config['feature_contact_attributes'].present? ? state[:contact] : nil,
-        campaign: state[:campaign] || {}
+        campaign: state[:campaign] || {},
+        message_length_limit: message_length_limit
       )
     end
 
@@ -56,8 +59,10 @@ module Concerns::Agentable
     InstallationConfig.find_by(name: 'CAPTAIN_OPEN_AI_MODEL')&.value
   end
 
-  def agent_response_schema
-    Captain::ResponseSchema
+  def agent_response_schema(message_length_limit = nil)
+    return Captain::ResponseSchema unless message_length_limit
+
+    Captain::ResponseSchema.with_message_length_limit(message_length_limit)
   end
 
   def format_current_time(timezone)
