@@ -25,6 +25,8 @@ class Whatsapp::IncomingMessageBaseService
   private
 
   def process_messages
+    return if group_message_event?
+
     # We don't support reactions & ephemeral message now, we need to skip processing the message
     # if the webhook event is a reaction or an ephermal message or an unsupported message.
     return if unprocessable_message_type?(message_type)
@@ -218,5 +220,12 @@ class Whatsapp::IncomingMessageBaseService
     phone_number = "+#{message_phone_number}"
     formatted_phone_number = TelephoneNumber.parse(phone_number).international_number
     @contact.name == phone_number || @contact.name == formatted_phone_number
+  end
+
+  def group_message_event?
+    message = messages_data&.first
+    return false if message.blank?
+
+    message[:group_id].present? || message['group_id'].present?
   end
 end

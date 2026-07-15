@@ -13,6 +13,8 @@ class Webhooks::WhatsappEventsJob < MutexApplicationJob
       return
     end
 
+    return if group_message_event?(params)
+
     sender_id = contact_sender_id(params)
     return process_events(channel, params) if sender_id.blank?
 
@@ -86,6 +88,15 @@ class Webhooks::WhatsappEventsJob < MutexApplicationJob
   end
 
   private
+
+  def group_message_event?(params)
+    value = params.dig(:entry, 0, :changes, 0, :value) || params.dig('entry', 0, 'changes', 0, 'value') || {}
+    messages = value[:messages] || value['messages'] || value[:message_echoes] || value['message_echoes']
+    message = messages&.first
+    return false if message.blank?
+
+    message[:group_id].present? || message['group_id'].present?
+  end
 
   # Echo payloads reverse the fields — `from` is the business number and `to` is the contact.
   # Returns nil for status-only webhooks so they bypass the lock.

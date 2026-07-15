@@ -70,6 +70,18 @@ RSpec.describe Webhooks::WhatsappEventsJob do
       job.perform_now(params)
     end
 
+    it 'does not enqueue Whatsapp::IncomingMessageWhatsappCloudService for group messages' do
+      group_params = params.deep_dup
+      group_params[:entry].first[:changes].first[:value][:messages] = [
+        { from: '2423423243', group_id: 'GROUP_ID', id: 'wamid-group', text: { body: 'Hello' }, type: 'text' }
+      ]
+
+      allow(Whatsapp::IncomingMessageWhatsappCloudService).to receive(:new).and_return(process_service)
+      expect(Whatsapp::IncomingMessageWhatsappCloudService).not_to receive(:new)
+
+      job.perform_now(group_params)
+    end
+
     it 'will not enqueue if channel is not present' do
       allow(Whatsapp::IncomingMessageWhatsappCloudService).to receive(:new).and_return(process_service)
       allow(Whatsapp::IncomingMessageService).to receive(:new).and_return(process_service)

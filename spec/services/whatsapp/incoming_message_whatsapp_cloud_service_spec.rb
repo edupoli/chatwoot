@@ -234,6 +234,39 @@ describe Whatsapp::IncomingMessageWhatsappCloudService do
       end
     end
 
+    context 'when the message is from a group (group_id present)' do
+      let(:group_message_params) do
+        {
+          phone_number: whatsapp_channel.phone_number,
+          object: 'whatsapp_business_account',
+          entry: [{
+            changes: [{
+              value: {
+                contacts: [{ profile: { name: 'Group User' }, wa_id: '2423423243' }],
+                messages: [{
+                  from: '2423423243',
+                  group_id: 'GROUP_ID',
+                  id: 'wamid.group-message',
+                  timestamp: '1664799904',
+                  type: 'text',
+                  text: { body: 'hello from group' }
+                }]
+              }
+            }]
+          }]
+        }.with_indifferent_access
+      end
+
+      it 'does not create contact, conversation, or message' do
+        expect do
+          described_class.new(inbox: whatsapp_channel.inbox, params: group_message_params).perform
+        end.not_to change(Message, :count)
+
+        expect(Contact.count).to eq(0)
+        expect(Conversation.count).to eq(0)
+      end
+    end
+
     context 'when message contains referral data' do
       let(:referral_params) do
         {
